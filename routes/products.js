@@ -226,9 +226,10 @@ router.get("/:id", async (req, res) => {
   try {
     const productId = req.params.id;
     console.log("Fetching product with ID:", productId);
+    console.log("Full request URL:", req.originalUrl);
 
-    // Validate ID format (24-character hex string)
     if (!/^[0-9a-fA-F]{24}$/.test(productId)) {
+      console.log("Invalid ID format:", productId);
       return res.status(400).json({ message: "Invalid product ID format" });
     }
 
@@ -236,7 +237,10 @@ router.get("/:id", async (req, res) => {
       "reviews.userId",
       "name"
     );
-    if (!product) return res.status(404).json({ message: "Product not found" });
+    if (!product) {
+      console.log("Product not found for ID:", productId);
+      return res.status(404).json({ message: "Product not found" });
+    }
 
     // Calculate rating stats
     const reviews = product.reviews.filter((r) => !r.pending);
