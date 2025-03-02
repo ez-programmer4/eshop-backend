@@ -64,7 +64,7 @@ router.post("/", authMiddleware, async (req, res) => {
       total += (product.price || 0) * (item.quantity || 0); // Fallbacks for missing values
     });
 
-    let discount = 0;
+    // Handle referral logic
     if (referralCode) {
       const referrer = await User.findOne({ referralCode });
       if (referrer) {
@@ -76,26 +76,27 @@ router.post("/", authMiddleware, async (req, res) => {
         if (referral) {
           referral.status = "Completed";
           await referral.save();
-          referrer.referralDiscount = 10;
-          req.user.referralDiscount = 10;
+          referrer.referralDiscount = 10; // Award 10% to referrer only
           await referrer.save();
-          await req.user.save();
-          discount = total * 0.1;
           await Notification.create({
             userId: referrer._id,
-            message: "Your referral was used! You earned a 10% discount.",
+            message:
+              "Your referral was used! You earned a 10% discount on your next order.",
             read: false,
+          });
+          await Activity.create({
+            userId: referrer._id,
+            action: "Referral Completed",
+            details: `Referred user ${req.user.name} placed an order.`,
           });
         }
       }
     }
 
-    total -= discount;
-
     const order = new Order({
       userId: req.user.id,
       items,
-      total: total.toFixed(2), // Ensure consistent formatting
+      total: total.toFixed(2), // No discount applied here
       shippingAddress,
       billingAddress,
       paymentMethod,

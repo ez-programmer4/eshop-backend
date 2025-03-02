@@ -226,23 +226,17 @@ router.get("/:id", async (req, res) => {
   try {
     const productId = req.params.id;
     console.log("Fetching product with ID:", productId);
-    console.log("Full request URL:", req.originalUrl);
-
     if (!/^[0-9a-fA-F]{24}$/.test(productId)) {
-      console.log("Invalid ID format:", productId);
       return res.status(400).json({ message: "Invalid product ID format" });
     }
-
     const product = await Product.findById(productId).populate(
       "reviews.userId",
       "name"
     );
     if (!product) {
-      console.log("Product not found for ID:", productId);
+      console.log("Product not found:", productId);
       return res.status(404).json({ message: "Product not found" });
     }
-
-    // Calculate rating stats
     const reviews = product.reviews.filter((r) => !r.pending);
     const totalReviews = reviews.length;
     const averageRating =
@@ -255,16 +249,10 @@ router.get("/:id", async (req, res) => {
     reviews.forEach((r) => {
       if (r.rating >= 1 && r.rating <= 5) ratingDistribution[r.rating - 1]++;
     });
-
-    const response = {
+    res.json({
       ...product.toObject(),
-      ratingStats: {
-        totalReviews,
-        averageRating,
-        ratingDistribution,
-      },
-    };
-    res.json(response);
+      ratingStats: { totalReviews, averageRating, ratingDistribution },
+    });
   } catch (err) {
     console.error("GET /api/products/:id error:", err);
     res.status(500).json({ message: err.message });

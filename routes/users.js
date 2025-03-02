@@ -204,4 +204,28 @@ router.delete("/:id", authMiddleware, adminMiddleware, async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+// Add after other routes in routes/users.js
+router.put("/apply-referral-discount", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.referralDiscount <= 0) {
+      return res
+        .status(400)
+        .json({ message: "No referral discount available" });
+    }
+    const discount = user.referralDiscount;
+    user.referralDiscount = 0; // Reset after applying
+    await user.save();
+    await Activity.create({
+      userId: req.user.id,
+      action: "Referral Discount Applied",
+      details: `Applied ${discount}% discount to next order`,
+    });
+    res.json({ message: "Referral discount applied", discount });
+  } catch (err) {
+    console.error("PUT /api/users/apply-referral-discount error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
 module.exports = router;
