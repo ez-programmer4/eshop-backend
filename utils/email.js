@@ -67,7 +67,7 @@ const sendOrderConfirmation = async (email, order) => {
             We’ll notify you when your order ships. Thank you for shopping with us!
           </p>
           <div style="text-align: center; font-size: 12px; color: #999; padding-top: 10px; border-top: 1px solid #eee;">
-            © ${new Date().getFullYear()} Your Ethiopian Store. All rights reserved.
+            © ${new Date().getFullYear()} Ethioshop. All rights reserved.
           </div>
         </div>
       </body>
