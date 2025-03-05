@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-  googleId: String,
+  googleId: { type: String, sparse: true }, // sparse for optional unique indexing
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { type: String }, // Removed required: true
   role: { type: String, enum: ["user", "admin"], default: "user" },
   referralCode: { type: String, unique: true }, // Unique code for referrals
   referredUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }], // Users referred by this user
@@ -19,6 +19,10 @@ userSchema.pre("save", async function (next) {
       .toString(36)
       .slice(2, 8)
       .toUpperCase()}`;
+  }
+  // Conditional validation: require password only for non-Google users
+  if (!this.googleId && !this.password) {
+    return next(new Error("Password is required for non-Google users"));
   }
   next();
 });
