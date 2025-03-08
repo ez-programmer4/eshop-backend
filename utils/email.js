@@ -1,4 +1,3 @@
-// backend/utils/sendOrderConfirmation.js
 const nodemailer = require("nodemailer");
 
 // Configure the email transporter
@@ -28,22 +27,36 @@ const sendOrderConfirmation = async (email, order) => {
     <html>
       <body style="font-family: Arial, sans-serif; color: #111; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f7f7f7;">
         <div style="background: #fff; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); padding: 20px;">
-          <h1 style="color: #f0c14b; font-size: 24px; margin-bottom: 10px;">Order Confirmed!</h1>
-          <p style="font-size: 16px; color: #555; margin-bottom: 20px;">
+          <!-- Logo -->
+          <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://ethioshop-820b.onrender.com/logo.png" alt="EthioShop Logo" style="width: 100px; height: auto;" />
+          </div>
+          <h1 style="color: #f0c14b; font-size: 24px; margin-bottom: 10px; text-align: center;">Order Confirmed!</h1>
+          <p style="font-size: 16px; color: #555; margin-bottom: 20px; text-align: center;">
             Thank you for your order, ${email.split("@")[0]}! Your order #${
     order._id
   } has been placed successfully.
           </p>
           <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
             <p style="font-size: 14px; margin: 5px 0;"><strong>PNR Code:</strong> ${
-              order.pnr
+              order.pnr || "N/A"
             }</p>
-            <p style="font-size: 14px; margin: 5px 0;"><strong>Total:</strong> $${
-              order.total
-            }</p>
+            <p style="font-size: 14px; margin: 5px 0;"><strong>Total:</strong> $${order.total.toFixed(
+              2
+            )}</p>
             <p style="font-size: 14px; margin: 5px 0;"><strong>Payment Method:</strong> ${
               order.paymentMethod.type
             }</p>
+            ${
+              order.paymentMethod.phone
+                ? `<p style="font-size: 14px; margin: 5px 0;"><strong>Phone:</strong> ${order.paymentMethod.phone}</p>`
+                : ""
+            }
+            ${
+              order.paymentMethod.last4
+                ? `<p style="font-size: 14px; margin: 5px 0;"><strong>Card Ending:</strong> ${order.paymentMethod.last4}</p>`
+                : ""
+            }
             <p style="font-size: 14px; margin: 5px 0;"><strong>Items:</strong></p>
             <ul style="list-style: none; padding: 0;">${itemsList}</ul>
           </div>
@@ -63,11 +76,11 @@ const sendOrderConfirmation = async (email, order) => {
               ${order.billingAddress.country}
             </p>
           </div>
-          <p style="font-size: 14px; color: #555; margin-bottom: 20px;">
+          <p style="font-size: 14px; color: #555; margin-bottom: 20px; text-align: center;">
             We’ll notify you when your order ships. Thank you for shopping with us!
           </p>
           <div style="text-align: center; font-size: 12px; color: #999; padding-top: 10px; border-top: 1px solid #eee;">
-            © ${new Date().getFullYear()} Ethioshop. All rights reserved.
+            © ${new Date().getFullYear()} EthioShop. All rights reserved.
           </div>
         </div>
       </body>
@@ -80,9 +93,9 @@ const sendOrderConfirmation = async (email, order) => {
     subject: `Order Confirmation #${order._id}`,
     text: `Thank you for your order! Order #${
       order._id
-    } has been placed successfully.\nTotal: $${
-      order.total
-    }\nItems: ${order.items.map((item) => item.productId.name).join(", ")}`,
+    } has been placed successfully.\nTotal: $${order.total.toFixed(
+      2
+    )}\nItems: ${order.items.map((item) => item.productId.name).join(", ")}`,
     html: htmlContent,
   };
 

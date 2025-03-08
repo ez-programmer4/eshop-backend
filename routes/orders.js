@@ -48,21 +48,46 @@ router.post("/", authMiddleware, async (req, res) => {
       billingAddress,
       paymentMethod,
       referralCode,
+      pnr, // Added from Cart.jsx
+      total: clientTotal, // Added for validation
+      logoUrl, // From Cart.jsx (optional, not used here but logged)
     } = req.body;
+
+    // Validate required fields
+    if (!items || !shippingAddress || !billingAddress || !paymentMethod) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    // Calculate total server-side
     let total = 0;
     const productIds = items.map((item) => item.productId);
     const products = await Product.find({ _id: { $in: productIds } });
 
-    items.forEach((item, index) => {
-      const product = products.find((p) => p._id.toString() === item.productId);
-      if (!product) {
-        console.warn(
-          `Item ${index + 1} has invalid productId: ${item.productId}`
+    const validatedItems = items
+      .map((item, index) => {
+        const product = products.find(
+          (p) => p._id.toString() === item.productId
         );
-        return; // Skip invalid products
-      }
-      total += (product.price || 0) * (item.quantity || 0); // Fallbacks for missing values
-    });
+        if (!product) {
+          console.warn(
+            `Item ${index + 1} has invalid productId: ${item.productId}`
+          );
+          return null; // Mark invalid items
+        }
+        const itemTotal = (product.price || 0) * (item.quantity || 0);
+        total += itemTotal;
+        return { productId: product._id, quantity: item.quantity };
+      })
+      .filter(Boolean); // Remove invalid items
+
+    if (validatedItems.length === 0) {
+      return res.status(400).json({ message: "No valid items in order" });
+    }
+
+    // Validate client-provided total (optional, for security)
+    if (clientTotal && Math.abs(clientTotal - total.toFixed(2)) > 0.01) {
+      console.warn("Client total mismatch:", clientTotal, total.toFixed(2));
+    }
 
     // Handle referral logic
     if (referralCode) {
@@ -76,7 +101,7 @@ router.post("/", authMiddleware, async (req, res) => {
         if (referral) {
           referral.status = "Completed";
           await referral.save();
-          referrer.referralDiscount = 10; // Award 10% to referrer only
+          referrer.referralDiscount = 10; // 10% discount for referrer
           await referrer.save();
           await Notification.create({
             userId: referrer._id,
@@ -93,29 +118,34 @@ router.post("/", authMiddleware, async (req, res) => {
       }
     }
 
+    // Create order
     const order = new Order({
       userId: req.user.id,
-      items,
-      total: total.toFixed(2), // No discount applied here
+      items: validatedItems,
+      total: total.toFixed(2),
       shippingAddress,
       billingAddress,
       paymentMethod,
       referralCode: referralCode || null,
+      pnr: pnr || null, // Include PNR from Cart.jsx
       statusHistory: [{ status: "Pending", updatedAt: new Date() }],
     });
     await order.save();
 
+    // Populate order for response and email
     const populatedOrder = await Order.findById(order._id).populate(
       "items.productId",
       "name price"
     );
 
+    // Send notification to user
     await Notification.create({
       userId: req.user.id,
       message: `Order #${order._id} placed successfully!`,
       read: false,
     });
 
+    // Send email with logo (handled by sendOrderConfirmation)
     const user = await User.findById(req.user.id).select("email");
     if (!user) throw new Error("User not found");
     await sendOrderConfirmation(user.email, populatedOrder);
@@ -123,7 +153,7 @@ router.post("/", authMiddleware, async (req, res) => {
     res.status(201).json(populatedOrder);
   } catch (err) {
     console.error("POST /api/orders error:", err.stack);
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: err.message || "Server error" });
   }
 });
 
