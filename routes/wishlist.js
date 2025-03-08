@@ -26,6 +26,7 @@ router.post("/", authMiddleware, async (req, res) => {
 
     res.status(201).json(savedItem);
   } catch (error) {
+    console.error("POST /api/wishlist error:", error);
     res.status(400).json({ message: error.message });
   }
 });
@@ -40,9 +41,9 @@ router.get("/:userId", authMiddleware, async (req, res) => {
     }
 
     const items = await Wishlist.find({ userId });
-
     res.json({ items });
   } catch (error) {
+    console.error("GET /api/wishlist/:userId error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -59,7 +60,6 @@ router.delete("/:userId/:productId", authMiddleware, async (req, res) => {
     }
 
     const deletedItem = await Wishlist.findOneAndDelete({ userId, productId });
-
     if (!deletedItem) {
       return res
         .status(404)
@@ -68,6 +68,7 @@ router.delete("/:userId/:productId", authMiddleware, async (req, res) => {
 
     res.json({ message: "Item removed from wishlist", deletedItem });
   } catch (error) {
+    console.error("DELETE /api/wishlist/:userId/:productId error:", error);
     res.status(500).json({ message: error.message });
   }
 });
@@ -82,15 +83,10 @@ router.delete("/:userId", authMiddleware, async (req, res) => {
     }
 
     const result = await Wishlist.deleteMany({ userId });
-    if (result.deletedCount === 0) {
-      return res
-        .status(404)
-        .json({ message: "No wishlist items found for this user" });
-    }
-
     res.json({
       message: "Wishlist cleared",
       deletedCount: result.deletedCount,
+      items: [],
     });
   } catch (error) {
     console.error("DELETE /api/wishlist/:userId error:", error);
