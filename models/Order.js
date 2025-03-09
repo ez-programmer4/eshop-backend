@@ -22,6 +22,11 @@ const orderSchema = new mongoose.Schema({
         required: true,
       },
       quantity: { type: Number, required: true },
+      bundleId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Bundle",
+        default: null, // Optional, null if not part of a bundle
+      },
     },
   ],
   total: { type: Number, required: true },

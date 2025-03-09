@@ -6,6 +6,7 @@ const Referral = require("../models/Referral");
 const Activity = require("../models/Activity");
 const Notification = require("../models/Notification");
 const Product = require("../models/Product");
+const Bundle = require("../models/Bundle"); // Add Bundle model
 const { authMiddleware, adminMiddleware } = require("../middleware/auth");
 const { sendOrderConfirmation } = require("../utils/email");
 const mongoose = require("mongoose");
@@ -48,9 +49,9 @@ router.post("/", authMiddleware, async (req, res) => {
       billingAddress,
       paymentMethod,
       referralCode,
-      pnr, // Added from Cart.jsx
-      total: clientTotal, // Added for validation
-      logoUrl, // From Cart.jsx (optional, not used here but logged)
+      pnr,
+      total: clientTotal,
+      logoUrl,
     } = req.body;
 
     // Validate required fields
@@ -58,15 +59,22 @@ router.post("/", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // Calculate total server-side
-    let total = 0;
+    // Fetch products and bundles
     const productIds = items.map((item) => item.productId);
     const products = await Product.find({ _id: { $in: productIds } });
+    const bundleIds = items
+      .filter((item) => item.bundleId)
+      .map((item) => item.bundleId);
+    const bundles = bundleIds.length
+      ? await Bundle.find({ _id: { $in: bundleIds } })
+      : [];
 
+    // Calculate total server-side with bundle discounts
+    let total = 0;
     const validatedItems = items
       .map((item, index) => {
         const product = products.find(
-          (p) => p._id.toString() === item.productId
+          (p) => p._id.toString() === item.productId.toString()
         );
         if (!product) {
           console.warn(
@@ -74,9 +82,36 @@ router.post("/", authMiddleware, async (req, res) => {
           );
           return null; // Mark invalid items
         }
-        const itemTotal = (product.price || 0) * (item.quantity || 0);
+
+        let itemPrice = product.price || 0;
+        if (item.bundleId) {
+          const bundle = bundles.find(
+            (b) => b._id.toString() === item.bundleId.toString()
+          );
+          if (bundle && bundle.discount) {
+            // Apply bundle discount (e.g., 15%)
+            const discountMultiplier = 1 - bundle.discount / 100;
+            itemPrice = (product.price || 0) * discountMultiplier;
+            console.log(
+              `Applied ${bundle.discount}% discount to ${product.name}: $${product.price} -> $${itemPrice}`
+            );
+          } else {
+            console.warn(
+              `Bundle ${item.bundleId} not found or has no discount for item ${
+                index + 1
+              }`
+            );
+          }
+        }
+
+        const itemTotal = itemPrice * (item.quantity || 1);
         total += itemTotal;
-        return { productId: product._id, quantity: item.quantity };
+
+        return {
+          productId: product._id,
+          quantity: item.quantity || 1,
+          bundleId: item.bundleId || null, // Include bundleId if present
+        };
       })
       .filter(Boolean); // Remove invalid items
 
@@ -84,9 +119,21 @@ router.post("/", authMiddleware, async (req, res) => {
       return res.status(400).json({ message: "No valid items in order" });
     }
 
-    // Validate client-provided total (optional, for security)
-    if (clientTotal && Math.abs(clientTotal - total.toFixed(2)) > 0.01) {
-      console.warn("Client total mismatch:", clientTotal, total.toFixed(2));
+    // Validate client-provided total
+    const calculatedTotal = Number(total.toFixed(2));
+    if (clientTotal && Math.abs(clientTotal - calculatedTotal) > 0.01) {
+      console.warn(
+        "Client total mismatch:",
+        clientTotal,
+        calculatedTotal,
+        "Difference:",
+        Math.abs(clientTotal - calculatedTotal)
+      );
+      return res.status(400).json({
+        message: "Total mismatch between client and server calculation",
+        clientTotal,
+        serverTotal: calculatedTotal,
+      });
     }
 
     // Handle referral logic
@@ -122,21 +169,20 @@ router.post("/", authMiddleware, async (req, res) => {
     const order = new Order({
       userId: req.user.id,
       items: validatedItems,
-      total: total.toFixed(2),
+      total: calculatedTotal,
       shippingAddress,
       billingAddress,
       paymentMethod,
       referralCode: referralCode || null,
-      pnr: pnr || null, // Include PNR from Cart.jsx
+      pnr: pnr || null,
       statusHistory: [{ status: "Pending", updatedAt: new Date() }],
     });
     await order.save();
 
     // Populate order for response and email
-    const populatedOrder = await Order.findById(order._id).populate(
-      "items.productId",
-      "name price"
-    );
+    const populatedOrder = await Order.findById(order._id)
+      .populate("items.productId", "name price")
+      .populate("userId", "email");
 
     // Send notification to user
     await Notification.create({
@@ -145,7 +191,7 @@ router.post("/", authMiddleware, async (req, res) => {
       read: false,
     });
 
-    // Send email with logo (handled by sendOrderConfirmation)
+    // Send email with logo
     const user = await User.findById(req.user.id).select("email");
     if (!user) throw new Error("User not found");
     await sendOrderConfirmation(user.email, populatedOrder);
@@ -249,7 +295,7 @@ router.get("/analytics", authMiddleware, adminMiddleware, async (req, res) => {
 
     const response = {
       totalOrders,
-      totalRevenue, // Return as number, not string
+      totalRevenue,
       topProducts,
       monthlySales: Object.values(monthlySales),
     };
