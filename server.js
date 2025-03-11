@@ -92,6 +92,7 @@ const returnRequestRoutes = require("./routes/returnRequests");
 const bundleRoutes = require("./routes/bundles");
 const referralRoutes = require("./routes/referrals");
 const discountRoutes = require("./routes/discounts");
+const paymentRoutes = require("./routes/payment");
 
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cartRoutes);
@@ -107,6 +108,7 @@ app.use("/api/activities", require("./routes/activities"));
 app.use("/api/referrals", referralRoutes);
 app.use("/api/bundles", bundleRoutes);
 app.use("/api/discounts", discountRoutes);
+app.use("/api", paymentRoutes);
 
 // Google OAuth Routes
 app.get(
