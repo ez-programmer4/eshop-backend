@@ -280,12 +280,25 @@ router.get("/related/:id", async (req, res) => {
 
 // Add product (admin only)
 router.post("/", authMiddleware, adminMiddleware, async (req, res) => {
-  const product = new Product(req.body);
+  const { name, description, price, category, stock, image } = req.body;
+  if (!name || !price || !category || !stock) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
   try {
-    const newProduct = await product.save();
-    res.status(201).json(newProduct);
-  } catch (err) {
-    res.status(400).json({ message: err.message });
+    const product = new Product({
+      name,
+      description,
+      price,
+      category,
+      stock,
+      image,
+    });
+    await product.save();
+    res.status(201).json(product);
+  } catch (error) {
+    res
+      .status(400)
+      .json({ message: "Error adding product", error: error.message });
   }
 });
 
