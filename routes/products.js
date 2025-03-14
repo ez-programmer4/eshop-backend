@@ -335,40 +335,33 @@ router.post("/:id/reviews", authMiddleware, async (req, res) => {
 });
 
 // Approve a review (admin only)
-router.put(
-  "/:productId/reviews/:reviewId/approve",
-  authMiddleware,
-  adminMiddleware,
-  async (req, res) => {
-    try {
-      const product = await Product.findById(req.params.productId);
-      if (!product)
-        return res.status(404).json({ message: "Product not found" });
+router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
 
-      const review = product.reviews.id(req.params.reviewId);
-      if (!review) return res.status(404).json({ message: "Review not found" });
+    Object.assign(product, req.body);
+    const updatedProduct = await product.save();
 
-      review.pending = false;
-      await product.save();
-      await product.populate("reviews.userId", "name");
+    updatedProduct.variants.forEach((variant) => {
+      if (variant.stock < updatedProduct.lowStockThreshold) {
+        User.find({ role: "admin" }).then((admins) => {
+          const notifications = admins.map((admin) => ({
+            userId: admin._id,
+            message: `Product "${updatedProduct.name}" variant (${variant.size}, ${variant.color}) stock is low (${variant.stock} units remaining).`,
+          }));
+          Notification.insertMany(notifications);
+        });
+      }
+    });
 
-      await Notification.create({
-        userId: review.userId,
-        message: `Your review for "${product.name}" has been approved!`,
-        read: false,
-      });
-
-      res.json(review);
-    } catch (err) {
-      console.error(
-        "PUT /api/products/:productId/reviews/:reviewId/approve error:",
-        err
-      );
-      res.status(500).json({ message: err.message });
-    }
+    await updatedProduct.populate("reviews.userId", "name");
+    res.json(updatedProduct);
+  } catch (err) {
+    console.error("PUT /api/products/:id error:", err);
+    res.status(400).json({ message: err.message });
   }
-);
-
+});
 // Update product (admin only)
 router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {

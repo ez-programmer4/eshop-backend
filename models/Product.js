@@ -10,9 +10,9 @@ const reviewSchema = new mongoose.Schema({
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  description: { type: String, required: true },
+  description: { type: String, default: "" },
   price: { type: Number, required: true },
-  image: { type: String, required: true },
+  image: { type: String, default: "" },
   category: { type: String, required: true },
   stock: { type: Number, required: true },
   lowStockThreshold: { type: Number, default: 5 },
