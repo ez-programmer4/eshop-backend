@@ -335,33 +335,33 @@ router.post("/:id/reviews", authMiddleware, async (req, res) => {
 });
 
 // Approve a review (admin only)
-router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
+// router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
+//   try {
+//     const product = await Product.findById(req.params.id);
+//     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    Object.assign(product, req.body);
-    const updatedProduct = await product.save();
+//     Object.assign(product, req.body);
+//     const updatedProduct = await product.save();
 
-    updatedProduct.variants.forEach((variant) => {
-      if (variant.stock < updatedProduct.lowStockThreshold) {
-        User.find({ role: "admin" }).then((admins) => {
-          const notifications = admins.map((admin) => ({
-            userId: admin._id,
-            message: `Product "${updatedProduct.name}" variant (${variant.size}, ${variant.color}) stock is low (${variant.stock} units remaining).`,
-          }));
-          Notification.insertMany(notifications);
-        });
-      }
-    });
+//     // updatedProduct.variants.forEach((variant) => {
+//     //   if (variant.stock < updatedProduct.lowStockThreshold) {
+//     //     User.find({ role: "admin" }).then((admins) => {
+//     //       const notifications = admins.map((admin) => ({
+//     //         userId: admin._id,
+//     //         message: `Product "${updatedProduct.name}" variant (${variant.size}, ${variant.color}) stock is low (${variant.stock} units remaining).`,
+//     //       }));
+//     //       Notification.insertMany(notifications);
+//     //     });
+//     //   }
+//     // });
 
-    await updatedProduct.populate("reviews.userId", "name");
-    res.json(updatedProduct);
-  } catch (err) {
-    console.error("PUT /api/products/:id error:", err);
-    res.status(400).json({ message: err.message });
-  }
-});
+//     await updatedProduct.populate("reviews.userId", "name");
+//     res.json(updatedProduct);
+//   } catch (err) {
+//     console.error("PUT /api/products/:id error:", err);
+//     res.status(400).json({ message: err.message });
+//   }
+// });
 // Update product (admin only)
 router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
   try {
@@ -371,17 +371,17 @@ router.put("/:id", authMiddleware, adminMiddleware, async (req, res) => {
     Object.assign(product, req.body);
     const updatedProduct = await product.save();
 
-    updatedProduct.variants.forEach((variant) => {
-      if (variant.stock < updatedProduct.lowStockThreshold) {
-        User.find({ role: "admin" }).then((admins) => {
-          const notifications = admins.map((admin) => ({
-            userId: admin._id,
-            message: `Product "${updatedProduct.name}" variant (${variant.size}, ${variant.color}) stock is low (${variant.stock} units remaining).`,
-          }));
-          Notification.insertMany(notifications);
-        });
-      }
-    });
+    // updatedProduct.variants.forEach((variant) => {
+    //   if (variant.stock < updatedProduct.lowStockThreshold) {
+    //     User.find({ role: "admin" }).then((admins) => {
+    //       const notifications = admins.map((admin) => ({
+    //         userId: admin._id,
+    //         message: `Product "${updatedProduct.name}" variant (${variant.size}, ${variant.color}) stock is low (${variant.stock} units remaining).`,
+    //       }));
+    //       Notification.insertMany(notifications);
+    //     });
+    //   }
+    // });
 
     await updatedProduct.populate("reviews.userId", "name");
     res.json(updatedProduct);
